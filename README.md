@@ -20,6 +20,23 @@ eigen macht.
 
 Herunterladen: [www.rosenweg4303.ch/apps](https://www.rosenweg4303.ch/apps).
 
+## Datenquelle
+
+Dieselbe wie die Web-Seite `wetter.html` (bleibt bestehen):
+
+| Was | Woher | Baustein |
+|---|---|---|
+| Live-Werte | MQTT `wetter/r9/<feld>` über `wss://mqtt.rosenweg4303.ch`, öffentlicher Lese-Benutzer `wetter-public` (nur `wetter/r9/#`, steht wie im Web-Code bewusst offen in `lib/quelle.dart`) | `RosenwegMqtt`, `EchtzeitAnzeige` |
+| Verlauf | `GET /api/wetter/r9/history?h=1…168` (öffentlich; Schnappschuss je Minute vom Ingest-Timer auf CT 105) | `Verlaufsdiagramm`, `Kleinverlauf`, `ZeitraumWahl` |
+| Sonne, Mond | gerechnet (SunCalc) für Kaiseraugst | `lib/sonne_mond.dart` |
+
+Die Station (ioBroker, weatherunderground) liefert seit August 2026 kaum Werte:
+Temperatur und Feuchte als Fehlerwert (−5572.8, −9999), Wind, Sonne, Regen
+stehen still, nur der Luftdruck bewegt sich. `lib/wetter_daten.dart`
+(`lageBestimmen`) erkennt das aus dem 24-h-Verlauf und blendet die Werte des
+Aussensensors aus; fehlende Zusatzmodule (CO₂ = 0, Blitz nie, Boden 0) ebenso.
+Gespeicherte MQTT-Werte (retained) zählen nicht als „live“.
+
 ## Bedienung
 
 Siehe [docs/anleitung.md](docs/anleitung.md).

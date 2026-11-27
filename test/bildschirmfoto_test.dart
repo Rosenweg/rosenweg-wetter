@@ -48,25 +48,46 @@ void main() {
     if (ziel != null) await schriften();
   });
 
-  Future<void> zeigen(WidgetTester t, Size groesse, {Phase? phase}) async {
+  Future<void> zeigen(WidgetTester t, Size groesse, {Phase? phase, bool ausfall = false, String? bereich}) async {
     t.view.physicalSize = groesse * 2;
     t.view.devicePixelRatio = 2;
     addTearDown(t.view.reset);
-    final s = RosenwegSitzung(appAngaben, transport: Attrappe());
+    final a = Attrappe(ausfall: ausfall);
+    final s = RosenwegSitzung(appAngaben, transport: a);
     await s.starten();
     if (phase != null) s.phase = phase;
-    await t.pumpWidget(RepaintBoundary(child: RosenwegRahmen(sitzung: s, inhalt: (_) => Haupt(sitzung: s))));
+    await t.pumpWidget(RepaintBoundary(
+      key: UniqueKey(), // je Foto frisch, sonst bleibt der Zustand der letzten Ansicht
+      child: RosenwegRahmen(sitzung: s, inhalt: (_) => Haupt(sitzung: s, echtzeit: a.echtzeit())),
+    ));
     await t.runAsync(() => precacheImage(appAngaben.logo!, t.element(find.byType(MaterialApp))));
     await t.runAsync(() => precacheImage(const AssetImage('assets/logo/rosenweg-wetter-klein.png'), t.element(find.byType(MaterialApp))));
     await t.pumpAndSettle();
+    if (bereich != null) {
+      await t.tap(find.text(bereich));
+      await t.pumpAndSettle();
+    }
   }
 
   testWidgets('Fotos', (t) async {
-    await zeigen(t, const Size(412, 860));
+    await zeigen(t, const Size(412, 900));
     await foto(t, 'rosenweg-wetter-handy.png');
-    await zeigen(t, const Size(1200, 800));
+    await zeigen(t, const Size(412, 900), ausfall: true);
+    await foto(t, 'rosenweg-wetter-handy-ausfall.png');
+    await zeigen(t, const Size(412, 900), bereich: 'Verlauf');
+    await foto(t, 'rosenweg-wetter-verlauf.png');
+    await t.tap(find.text('Temperatur'));
+    await t.pumpAndSettle();
+    await foto(t, 'rosenweg-wetter-verlauf-gross.png');
+    await zeigen(t, const Size(1280, 800));
     await foto(t, 'rosenweg-wetter-station.png');
+    await zeigen(t, const Size(1280, 800), bereich: 'Verlauf');
+    await foto(t, 'rosenweg-wetter-station-verlauf.png');
+    await zeigen(t, const Size(1280, 800), ausfall: true, bereich: 'Verlauf');
+    await foto(t, 'rosenweg-wetter-station-verlauf-ausfall.png');
     await zeigen(t, const Size(412, 860), phase: Phase.abgemeldet);
     await foto(t, 'rosenweg-wetter-anmelden.png');
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(seconds: 1));
   }, skip: ziel == null);
 }

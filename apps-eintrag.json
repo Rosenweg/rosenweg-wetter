@@ -4,9 +4,10 @@
   "name": "Rosenweg Wetter",
   "repo": "Rosenweg/rosenweg-wetter",
   "paket": "ch.rosenweg4303.wetter",
-  "logo": "/img/apps/rosenweg-wetter.png",
-  "reihenfolge": 100,
-  "text": "Wetterstation am Rosenweg 9: aktuelle Werte live, Verlauf bis 7 Tage, Sonne und Mond.",
-  "fuer": "",
-  "technik": false
+  "logo": "/img/apps/rosenweg-wetter.png?v=20261128",
+  "reihenfolge": 80,
+  "text": "Wetterstation am Rosenweg 9: aktuelle Werte live, Verlauf bis 7 Tage mit Diagrammen, Sonne und Mond. Liefert die Station nichts, sagt die App das klar statt Nullen zu zeigen.",
+  "fuer": "Für alle Bewohner und Eigentümer. Die Werte sind öffentlich (wie die Web-Seite wetter.html).",
+  "technik": false,
+  "_notiz": "Flutter, alle Plattformen (Welle 2, Pilot fuer die Basis-Bausteine Diagramme und MQTT). Web-Seiten wetter.html und pwa/wetter bleiben. Live ueber den MQTT-Broker (wetter-public), kein ntfy."
 }
