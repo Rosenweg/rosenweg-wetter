@@ -1,0 +1,4 @@
+#!/bin/sh
+# Startet Rosenweg Wetter aus /opt/rosenweg-wetter (Flutter-Buendel sucht data/
+# und lib/ neben der echten Programmdatei; wie rosenweg-profil, rosenweg-vm).
+exec /opt/rosenweg-wetter/rosenweg_wetter "$@"

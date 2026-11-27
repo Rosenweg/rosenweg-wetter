@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Rosenweg Wetter
+Comment=Wetterstation am Rosenweg 9: aktuelle Werte live, Verlauf bis 7 Tage, Sonne und Mond.
+Exec=rosenweg-wetter
+# Name im Symbol-Thema (hicolor), kein Pfad.
+Icon=rosenweg-wetter
+Terminal=false
+# Dateiname = GTK-Anwendungskennung (APPLICATION_ID in linux/CMakeLists.txt).
+StartupWMClass=ch.rosenweg4303.wetter
+# Kategorie "Rosenweg" im Startmenue der Stationen (os-stationen 60-programme.sh)
+Categories=Office;Utility;
+Keywords=Rosenweg;
