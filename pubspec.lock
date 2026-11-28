@@ -857,11 +857,11 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: "v0.9.0"
-      resolved-ref: f647ac9d8a78ac0abc7a67fbe4784ff797673c1a
+      ref: "v0.9.1"
+      resolved-ref: efeacc990345d778f377f0112f3cfa37e09d1d6d
       url: "https://github.com/Rosenweg/rosenweg-basis.git"
     source: git
-    version: "0.9.0"
+    version: "0.9.1"
   rxdart:
     dependency: transitive
     description:
