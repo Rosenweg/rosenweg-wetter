@@ -21,9 +21,9 @@ dependencies:
   rosenweg_basis:
     git:
       url: https://github.com/Rosenweg/rosenweg-basis.git
-      # Commit aus PR #34 (Bausteine Diagramme und Echtzeit/MQTT). Sobald der
+      # Commit aus PR #34 (Diagramme, Echtzeit/MQTT; auf 0.8.0). Sobald der
       # Integrator die Fassung taggt: hier den Tag eintragen.
-      ref: c36e47fd42327c870ff9aa4cbf9473a504bd2b73
+      ref: 06de05c01e7cfdd06c103cc5b3d13b65d62a6fe2
 
 dev_dependencies:
   flutter_test:
