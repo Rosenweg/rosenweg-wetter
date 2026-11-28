@@ -1,6 +1,4 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rosenweg_basis/rosenweg_basis.dart';
@@ -11,81 +9,117 @@ import 'package:rosenweg_wetter/seiten/haupt.dart';
 void main() {
   setUpAll(() => Protokoll.nurKonsole = true);
 
-  Future<Attrappe> zeigen(WidgetTester t, Size groesse) async {
+  Future<Attrappe> zeigen(
+    WidgetTester t,
+    Size groesse, {
+    bool ausfall = false,
+    Map<String, String>? gespeichert,
+    ApiAntwort? verlauf,
+  }) async {
     t.view.physicalSize = groesse;
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.reset);
-    final a = Attrappe();
+    final a = Attrappe(ausfall: ausfall);
+    if (verlauf != null) a.erzwungen['GET /api/wetter/r9/history?h=24'] = verlauf;
     final s = RosenwegSitzung(appAngaben, transport: a);
     await s.starten();
-    await t.pumpWidget(RosenwegRahmen(sitzung: s, inhalt: (_) => Haupt(sitzung: s)));
+    await t.pumpWidget(RosenwegRahmen(
+      sitzung: s,
+      inhalt: (_) => Haupt(sitzung: s, echtzeit: EchtzeitAttrappe(gespeichert ?? a.gespeichert())),
+    ));
     await t.pumpAndSettle();
     return a;
   }
 
-  testWidgets('Handy: Navigation unten, Konto laedt /api/auth/me', (t) async {
-    final a = await zeigen(t, const Size(412, 860));
+  Future<void> ende(WidgetTester t) async {
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(seconds: 1));
+  }
+
+  testWidgets('Station liefert: Temperatur gross, Kacheln, Sonne und Mond; Verlauf mit allen Werten', (t) async {
+    final a = await zeigen(t, const Size(412, 900));
     expect(find.byType(NavigationBar), findsOneWidget);
-    expect(find.byType(NavigationRail), findsNothing);
-    expect(find.textContaining('Willkommen'), findsOneWidget);
-    await t.tap(find.text('Mein Konto'));
+    expect(find.textContaining('°C'), findsWidgets);
+    expect(find.textContaining('Aussentemperatur'), findsOneWidget);
+    expect(find.text('verbunden · wartet auf neue Werte'), findsOneWidget, reason: 'retained zaehlt nicht als live');
+    expect(find.text('Luftdruck'), findsOneWidget);
+    expect(find.textContaining('Aussensensor'), findsNothing);
+    await t.scrollUntilVisible(find.text('Regen dieses Jahr'), 200);
+    expect(find.text('CO₂'), findsNothing, reason: 'CO₂-Modul meldet 0 = nicht vorhanden');
+    expect(find.text('Blitze'), findsNothing, reason: 'noch nie ein Blitz = kein Blitzsensor');
+    await t.scrollUntilVisible(find.text('Sonne und Mond'), 200);
+    expect(find.textContaining('Aufgang'), findsOneWidget);
+    expect(a.anfragen.any((r) => r.pfad == '/api/wetter/r9/history?h=24'), isTrue);
+
+    await t.tap(find.text('Verlauf'));
     await t.pumpAndSettle();
-    expect(find.text('erika.muster@example.org'), findsOneWidget);
-    expect(a.anfragen.any((r) => r.pfad == '/api/auth/me'), isTrue);
+    expect(find.text('Temperatur'), findsOneWidget);
+    expect(find.byType(Kleinverlauf), findsWidgets);
+    expect(find.textContaining('Ohne Werte'), findsNothing);
+
+    // gross mit Zeitraum
+    await t.tap(find.text('Temperatur'));
+    await t.pumpAndSettle();
+    expect(find.byType(ZeitraumWahl), findsOneWidget);
+    expect(find.byType(Verlaufsdiagramm), findsOneWidget);
+    await t.tap(find.text('7 T'));
+    await t.pumpAndSettle();
+    expect(a.anfragen.any((r) => r.pfad == '/api/wetter/r9/history?h=168'), isTrue);
+    expect(find.textContaining('tiefster'), findsOneWidget);
+    await ende(t);
   });
 
-  testWidgets('Einträge: Liste mit Suche, Neu nur mit Schreibrecht, Fehler der API am Feld', (t) async {
-    final a = await zeigen(t, const Size(412, 860));
-    await t.tap(find.text('Einträge'));
-    await t.pumpAndSettle();
-    expect(find.text('Velokeller aufräumen'), findsOneWidget);
-    await t.enterText(find.byType(TextField).first, 'Lampe');
-    await t.pumpAndSettle();
-    expect(find.text('Velokeller aufräumen'), findsNothing);
-    expect(find.text('Lampe im Treppenhaus ersetzen'), findsOneWidget);
+  testWidgets('Aussensensor aus (wie seit August 2026): nur Luftdruck, klare Hinweise', (t) async {
+    await zeigen(t, const Size(412, 900), ausfall: true);
+    expect(find.text('Keine aktuelle Temperatur'), findsOneWidget);
+    expect(find.textContaining('Aussensensor der Wetterstation liefert zurzeit keine Werte'), findsOneWidget);
+    expect(find.text('Luftdruck'), findsOneWidget);
+    expect(find.text('Wind'), findsNothing);
+    expect(find.text('Sonnenstrahlung'), findsNothing);
+    await t.scrollUntilVisible(find.text('Sonne und Mond'), 200);
+    expect(find.text('Regen dieses Jahr'), findsNothing, reason: 'eingefrorener Jahreswert');
+    expect(find.text('Bodenfeuchte'), findsNothing);
 
-    await t.tap(find.text('Neu'));
+    await t.tap(find.text('Verlauf'));
     await t.pumpAndSettle();
-    await t.tap(find.text('Speichern'));
-    await t.pumpAndSettle();
-    expect(find.text('Bitte die markierten Felder prüfen.'), findsWidgets);
-    await t.enterText(find.byType(TextFormField), 'Velokeller aufräumen');
-    await t.tap(find.text('Speichern'));
-    await t.pumpAndSettle();
-    expect(find.text('Diesen Eintrag gibt es schon.'), findsOneWidget);
-    await t.enterText(find.byType(TextFormField), 'Neue Glühbirne');
-    await t.pump();
-    await t.tap(find.text('Speichern'));
-    await t.pumpAndSettle();
-    expect(find.text('Neuer Eintrag'), findsNothing);
-    expect(a.anfragen.where((r) => r.methode == 'POST').length, 2);
-    // neu geladen; die Suche "Lampe" gilt noch
-    await t.enterText(find.byType(TextField).first, 'Glüh');
-    await t.pumpAndSettle();
-    expect(find.text('Neue Glühbirne'), findsOneWidget);
+    expect(find.text('Luftdruck'), findsOneWidget);
+    expect(find.text('Temperatur'), findsNothing);
+    expect(find.textContaining('Ohne Werte in den letzten 24 Stunden: Temperatur, Luftfeuchte, Wind'), findsOneWidget);
+    await ende(t);
   });
 
-  testWidgets('Desktop (Station): Leiste links', (t) async {
-    await zeigen(t, const Size(1280, 800));
-    expect(find.byType(NavigationRail), findsOneWidget);
-    expect(find.byType(NavigationBar), findsNothing);
+  testWidgets('gar keine Werte: Leer-Zustand statt Nullen', (t) async {
+    await zeigen(t, const Size(412, 900),
+        gespeichert: const {'wetter/r9/outdoortemp': '-9999', 'wetter/r9/outdoorhumidity': '-9999'},
+        verlauf: (status: 200, json: {'station': 'r9', 'hours': 24, 'points': <Object>[]}));
+    expect(find.text('Die Wetterstation liefert gerade keine Werte.'), findsOneWidget);
+    expect(find.text('Keine aktuelle Temperatur'), findsOneWidget);
+    await t.tap(find.text('Verlauf'));
+    await t.pumpAndSettle();
+    expect(find.text('Noch kein Verlauf'), findsOneWidget);
+    await ende(t);
   });
 
-  testWidgets('Fehler zeigt Nochmals und laedt neu', (t) async {
-    final a = await zeigen(t, const Size(412, 860));
-    a.erzwungen['GET /api/auth/me'] = (status: 503, json: {'error': 'Wartung'});
-    await t.tap(find.text('Mein Konto'));
+  testWidgets('Verlauf nicht erreichbar: Fehler mit Nochmals, Jetzt geht trotzdem', (t) async {
+    await zeigen(t, const Size(412, 900), verlauf: (status: 500, json: {'error': 'history'}));
+    expect(find.textContaining('Aussentemperatur'), findsOneWidget);
+    await t.tap(find.text('Verlauf'));
     await t.pumpAndSettle();
     expect(find.text('Nochmals'), findsOneWidget);
     await t.tap(find.text('Nochmals'));
     await t.pumpAndSettle();
-    expect(find.text('erika.muster@example.org'), findsOneWidget);
+    expect(find.byType(Kleinverlauf), findsWidgets);
+    await ende(t);
   });
 
-  test('Kennung, Ordner und Logo passen zusammen', () {
-    expect(appAngaben.kennung, matches(RegExp(r'^ch\.rosenweg4303\.[a-z][a-z0-9]*$')));
-    expect(appAngaben.ordner, startsWith('rosenweg-'));
-    expect(File('assets/logo/${appAngaben.ordner}-512.png').existsSync(), isTrue);
-    expect(File('assets/logo/${appAngaben.ordner}-klein.png').existsSync(), isTrue);
+  testWidgets('Station (breit): Leiste links, Verlauf zweispaltig', (t) async {
+    await zeigen(t, const Size(1280, 860));
+    expect(find.byType(NavigationRail), findsOneWidget);
+    await t.tap(find.text('Verlauf'));
+    await t.pumpAndSettle();
+    final a = t.getTopLeft(find.text('Temperatur'));
+    final b = t.getTopLeft(find.text('Luftfeuchte'));
+    expect(a.dy, b.dy, reason: 'zwei Karten nebeneinander');
+    await ende(t);
   });
 }

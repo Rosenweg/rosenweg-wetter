@@ -2,51 +2,67 @@
 import 'package:flutter/material.dart';
 import 'package:rosenweg_basis/rosenweg_basis.dart';
 
-import 'eintraege.dart';
+import '../quelle.dart';
+import 'jetzt.dart';
+import 'verlauf.dart';
 
-/// Die App nach der Anmeldung. Das Geruest aus rosenweg_basis legt die
-/// Bereiche ([GeruestZiel]) auf dem Handy unten und am Desktop (ab 840 px,
-/// Stationen, Laptops) links als Leiste ab; der Inhalt bleibt am Desktop
-/// mittig begrenzt.
+/// Die App nach der Anmeldung: zwei Bereiche, „Jetzt“ (Live-Werte, Sonne und
+/// Mond) und „Verlauf“ (Diagramme bis 7 Tage). Am Handy unten, ab 840 px
+/// (Stationen) als Leiste links.
 ///
-/// Hier die eigenen Bereiche eintragen. Die Vorlage zeigt drei: eine
-/// Uebersicht, "Einträge" (Bausteine Liste, Formular, Rechte – siehe
-/// eintraege.dart) und "Mein Konto" (GET /api/auth/me, als Beispiel fuer
-/// einen API-Aufruf mit Laden, Fehler und Nochmals).
-class Haupt extends StatelessWidget {
-  const Haupt({super.key, required this.sitzung});
+/// Eine [WetterQuelle] fuer beide Bereiche: eine MQTT-Verbindung, ein
+/// 24-h-Verlauf, nachgeladen beim Oeffnen, beim Zurueckkommen und alle 5 min.
+class Haupt extends StatefulWidget {
+  const Haupt({super.key, required this.sitzung, this.echtzeit});
   final RosenwegSitzung sitzung;
+
+  /// Fuer Tests und die Attrappe; sonst der Broker der Anlage.
+  final EchtzeitQuelle? echtzeit;
+
+  @override
+  State<Haupt> createState() => _HauptState();
+}
+
+class _HauptState extends State<Haupt> {
+  late final WetterQuelle _quelle = WetterQuelle(
+    api: widget.sitzung.api,
+    echtzeit: widget.echtzeit ?? RosenwegMqtt(wetterLeser, kennungVorsilbe: 'rwwetterapp'),
+  );
+
+  @override
+  void dispose() {
+    _quelle.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final app = sitzung.app;
-    return RosenwegGeruest(
-      titel: Text(app.name),
-      logo: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Image.asset('assets/logo/rosenweg-wetter-klein.png', semanticLabel: 'Logo'),
+    final sitzung = widget.sitzung;
+    return BeimOeffnen(
+      pruefen: _quelle.auffrischen,
+      alle: const Duration(minutes: 5),
+      child: RosenwegGeruest(
+        titel: Text(sitzung.app.name),
+        logo: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Image.asset('assets/logo/rosenweg-wetter-klein.png', semanticLabel: 'Logo'),
+        ),
+        aktionen: [_Menue(sitzung: sitzung)],
+        ziele: [
+          GeruestZiel(
+            titel: 'Jetzt',
+            symbol: Icons.wb_sunny_outlined,
+            gewaehltSymbol: Icons.wb_sunny,
+            seite: (_) => JetztSeite(quelle: _quelle),
+          ),
+          GeruestZiel(
+            titel: 'Verlauf',
+            symbol: Icons.show_chart_outlined,
+            gewaehltSymbol: Icons.show_chart,
+            seite: (_) => VerlaufSeite(quelle: _quelle),
+          ),
+        ],
       ),
-      aktionen: [_Menue(sitzung: sitzung)],
-      ziele: [
-        GeruestZiel(
-          titel: 'Übersicht',
-          symbol: Icons.home_outlined,
-          gewaehltSymbol: Icons.home,
-          seite: (_) => UebersichtSeite(sitzung: sitzung),
-        ),
-        GeruestZiel(
-          titel: 'Einträge',
-          symbol: Icons.list_alt_outlined,
-          gewaehltSymbol: Icons.list_alt,
-          seite: (_) => EintraegeSeite(sitzung: sitzung),
-        ),
-        GeruestZiel(
-          titel: 'Mein Konto',
-          symbol: Icons.person_outline,
-          gewaehltSymbol: Icons.person,
-          seite: (_) => KontoSeite(api: sitzung.api),
-        ),
-      ],
     );
   }
 }
@@ -78,84 +94,4 @@ class _Menue extends StatelessWidget {
           if (!sitzung.geteiltesTelefon) const PopupMenuItem(value: 'abmelden', child: Text('Abmelden')),
         ],
       );
-}
-
-class UebersichtSeite extends StatelessWidget {
-  const UebersichtSeite({super.key, required this.sitzung});
-  final RosenwegSitzung sitzung;
-
-  @override
-  Widget build(BuildContext context) => ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text('Willkommen${sitzung.name != null ? ', ${sitzung.name}' : ''}',
-              style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 8),
-          Text(sitzung.app.beschreibung),
-          const SizedBox(height: 16),
-          const Hinweis('Hier kommt der Inhalt der App hin. Seiten in lib/seiten/, '
-              'API-Aufrufe über sitzung.api, Vorführdaten in lib/attrappe.dart.'),
-        ],
-      );
-}
-
-/// Beispiel fuer einen API-Aufruf: laden, Fehler mit "Nochmals", Inhalt.
-class KontoSeite extends StatefulWidget {
-  const KontoSeite({super.key, required this.api});
-  final RosenwegApi api;
-
-  @override
-  State<KontoSeite> createState() => _KontoSeiteState();
-}
-
-class _KontoSeiteState extends State<KontoSeite> {
-  Map<String, dynamic>? _ich;
-  Object? _fehler;
-
-  @override
-  void initState() {
-    super.initState();
-    _laden();
-  }
-
-  Future<void> _laden() async {
-    setState(() {
-      _fehler = null;
-      _ich = null;
-    });
-    try {
-      final j = await widget.api.objekt('/api/auth/me');
-      final u = j['user'];
-      if (mounted) setState(() => _ich = u is Map<String, dynamic> ? u : j);
-    } catch (e) {
-      if (mounted) setState(() => _fehler = e);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_fehler != null) return FehlerAnzeige(text: '$_fehler', nochmals: _laden);
-    final ich = _ich;
-    if (ich == null) return const LadeAnzeige();
-    final gruppen = (ich['groups'] as List?)?.join(', ') ?? '';
-    return RefreshIndicator(
-      onRefresh: _laden,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Abschnitt(
-            titel: 'Angemeldet als',
-            symbol: Icons.badge_outlined,
-            kind: Column(
-              children: [
-                ListTile(title: const Text('Name'), subtitle: Text('${ich['name'] ?? '–'}')),
-                ListTile(title: const Text('E-Mail'), subtitle: Text('${ich['email'] ?? '–'}')),
-                if (gruppen.isNotEmpty) ListTile(title: const Text('Gruppen'), subtitle: Text(gruppen)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
