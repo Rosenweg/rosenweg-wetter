@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="de-CH">
+<head>
+  <!-- Platzhalter: ersetzt `flutter build web --base-href /app/<kurzname>/` -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Rosenweg Wetter">
+  <meta name="theme-color" content="#D62828">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Rosenweg Wetter">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+  <title>Rosenweg Wetter</title>
+
+  <!--
+    Eine Anmeldung für die ganze Website: Die Web-Version liegt unter
+    rosenweg4303.ch/app/<kurzname>/ und nutzt die Sitzung der Website. Das
+    Modul der Website (js/authentik-auth.js) kennt den ganzen Ablauf; die App
+    (rosenweg_basis, WebKonto) ruft es nur auf. Die Rückkehr von der Anmeldung
+    (#auth=…) muss vor dem Start von Flutter verarbeitet sein, sonst hält
+    Flutter das Fragment für eine Seitenadresse.
+    Siehe rosenweg-basis docs/web.md.
+  -->
+  <script src="/js/authentik-auth.js"></script>
+  <script>
+    // authentik-auth.js legt `const AuthentikAuth` an: das ist KEINE Eigenschaft
+    // von window, Dart-JS-Interop fände es nicht. Darum hier hineinlegen.
+    try { window.AuthentikAuth = AuthentikAuth; AuthentikAuth.handleCallback(); }
+    catch (e) { console.warn('Anmeldung der Website nicht geladen', e); }
+  </script>
+</head>
+<body>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>
