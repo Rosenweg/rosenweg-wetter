@@ -57,6 +57,15 @@ class _JetztSeiteState extends State<JetztSeite> {
                 if (q.wartet)
                   const Padding(padding: EdgeInsets.all(24), child: LadeAnzeige(text: 'Verbinde mit der Wetterstation …'))
                 else ...[
+                  if (l.ersatz != null) ...[
+                    Hinweis(
+                      '${l.ersatz!.hinweis}. Die Wetterstation am Rosenweg 9 liefert zurzeit keine brauchbaren Werte; '
+                      'die Werte stammen von einer Messstation'
+                      '${l.ersatz!.abstandKm != null ? ' rund ${l.ersatz!.abstandKm!.round()} km' : ''} entfernt und können abweichen.',
+                      art: HinweisArt.warnung,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   if (l.aussenAusgefallen) ...[
                     Hinweis(
                       'Der Aussensensor der Wetterstation liefert zurzeit keine Werte'
@@ -88,7 +97,9 @@ class _JetztSeiteState extends State<JetztSeite> {
                 _SonneMond(jetzt: _jetzt),
                 const SizedBox(height: 8),
                 Text(
-                  'Wetterstation Rosenweg 9, Kaiseraugst. Berechnete Werte ohne Gewähr.',
+                  l.ersatz == null
+                      ? 'Wetterstation Rosenweg 9, Kaiseraugst. Berechnete Werte ohne Gewähr.'
+                      : 'Ersatzwerte: Quelle MeteoSchweiz (Open Government Data), Station ${l.ersatz!.stationText}. Berechnete Werte ohne Gewähr.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),

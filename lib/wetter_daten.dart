@@ -119,10 +119,80 @@ Map<String, Messreihe> verlaufLesen(Object? json) {
   return reihen;
 }
 
+/// Ersatzwerte: faellt die eigene Station aus, liefert die API (`GET
+/// /api/wetter/r9/aktuell`) die Messung einer MeteoSchweiz-Station (Open
+/// Government Data, Namensnennung Pflicht).
+@immutable
+class Ersatz {
+  const Ersatz({required this.station, required this.name, required this.stand, this.abstandKm});
+
+  /// Abkuerzung, z. B. BAS.
+  final String station;
+
+  /// Name, z. B. „Basel / Binningen“.
+  final String name;
+
+  /// Zeitpunkt der Messung.
+  final DateTime stand;
+  final double? abstandKm;
+
+  /// „Basel / Binningen (BAS)“.
+  String get stationText => name.isEmpty || name == station ? station : '$name ($station)';
+
+  /// Der Hinweis nach den Nutzungsbedingungen von MeteoSchweiz.
+  String get hinweis => 'Ersatzwerte: MeteoSchweiz, Station $stationText, Stand ${zeitpunktText(stand)}';
+}
+
+/// Ersatz aus der Antwort von `/api/wetter/r9/aktuell`; null = eigene Station.
+Ersatz? ersatzLesen(Object? json) {
+  if (json is! Map || json['zustand'] != 'ersatz') return null;
+  final q = json['quelle'];
+  if (q is! Map || q['art'] != 'meteoschweiz') return null;
+  final stand = DateTime.tryParse('${q['stand']}');
+  if (stand == null) return null;
+  final abk = '${q['station'] ?? ''}'.trim();
+  if (abk.isEmpty) return null;
+  return Ersatz(
+    station: abk,
+    name: '${q['name'] ?? ''}'.trim(),
+    stand: stand.toLocal(),
+    abstandKm: q['abstand_km'] is num ? (q['abstand_km'] as num).toDouble() : null,
+  );
+}
+
+/// Werte der Ersatzstation als rohe Feldwerte (wie von MQTT); ohne Sonnenscheindauer.
+Map<String, String> ersatzRoh(Object? json) {
+  final w = json is Map ? json['werte'] : null;
+  if (w is! Map) return const {};
+  return {
+    for (final e in w.entries)
+      if (e.value is num && e.key != 'sonnenschein_min') '${e.key}': '${e.value}',
+  };
+}
+
+/// Zeitraum im Verlauf, in dem Ersatzwerte stehen (API: `ersatz: {von, bis}`); sonst null.
+({DateTime von, DateTime bis, Set<String> stationen})? verlaufErsatzLesen(Object? json) {
+  if (json is! Map || json['ersatz'] is! Map) return null;
+  final e = json['ersatz'] as Map;
+  final von = DateTime.tryParse('${e['von']}'), bis = DateTime.tryParse('${e['bis']}');
+  if (von == null || bis == null) return null;
+  final punkte = json['points'] is List ? json['points'] as List : const [];
+  final st = {
+    for (final p in punkte)
+      if (p is Map && p['ersatz'] == true && '${p['ersatz_station'] ?? ''}'.isNotEmpty) '${p['ersatz_station']}',
+  };
+  return (von: von.toLocal(), bis: bis.toLocal(), stationen: st);
+}
+
 /// Was die Station gerade wirklich liefert.
 @immutable
 class Lage {
-  const Lage({required this.werte, required this.texte, this.aussenAusgefallen = false, this.ausgefallenSeit});
+  const Lage({required this.werte, required this.texte, this.aussenAusgefallen = false, this.ausgefallenSeit, this.ersatz});
+
+  /// Gesetzt, wenn die Werte nicht von der eigenen Station kommen.
+  final Ersatz? ersatz;
+
+  Lage mitErsatz(Ersatz e) => Lage(werte: werte, texte: texte, ersatz: e);
 
   /// Gueltige Zahlen je Feld (ohne Fehlerwerte, ohne Ausgefallenes).
   final Map<String, double> werte;

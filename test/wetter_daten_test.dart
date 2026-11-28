@@ -75,4 +75,40 @@ void main() {
     expect(r[druck.name]!.letzter!.wert, 991.1);
     expect(r[druck.name], isA<Messreihe>());
   });
+
+  test('Ersatz: aus der Antwort der API lesen, Hinweis mit Station und Stand', () {
+    final j = Attrappe(jetzt: jetzt, ersatz: true);
+    final antwort = {
+      'zustand': 'ersatz',
+      'quelle': {'art': 'meteoschweiz', 'station': 'BAS', 'name': 'Basel / Binningen', 'stand': '2026-11-28T11:00:00.000Z', 'abstand_km': 10.3},
+      'werte': {'outdoortemp': 3.1, 'solarradiation': 12670, 'uvi': null, 'sonnenschein_min': 10},
+    };
+    final e = ersatzLesen(antwort)!;
+    expect(e.station, 'BAS');
+    expect(e.hinweis, startsWith('Ersatzwerte: MeteoSchweiz, Station Basel / Binningen (BAS), Stand '));
+    final roh = ersatzRoh(antwort);
+    expect(roh.keys.toSet(), {'outdoortemp', 'solarradiation'}, reason: 'null und Sonnenscheindauer bleiben draussen');
+    final l = lageBestimmen(roh, const {}).mitErsatz(e);
+    expect(l[temperatur], 3.1);
+    expect(l[sonne], closeTo(100, 1e-9));
+    expect(l.ersatz, isNotNull);
+    expect(j.ersatz, isTrue);
+    // eigene Station oder fremde Quelle: kein Ersatz
+    expect(ersatzLesen({'zustand': 'eigen', 'quelle': {'art': 'eigen'}}), isNull);
+    expect(ersatzLesen({'zustand': 'ersatz', 'quelle': {'art': 'andere', 'station': 'X', 'stand': '2026-11-28T11:00:00Z'}}), isNull);
+    expect(ersatzLesen(null), isNull);
+  });
+
+  test('Verlauf: Ersatz-Zeitraum und Stationen aus der API', () {
+    final r = verlaufErsatzLesen({
+      'ersatz': {'von': '2026-11-28T08:00:00.000Z', 'bis': '2026-11-28T11:00:00.000Z'},
+      'points': [
+        {'ts': '2026-11-28T08:00:00Z', 'ersatz': true, 'ersatz_station': 'BAS'},
+        {'ts': '2026-11-28T07:00:00Z'},
+      ],
+    })!;
+    expect(r.stationen, {'BAS'});
+    expect(r.bis.isAfter(r.von), isTrue);
+    expect(verlaufErsatzLesen({'ersatz': null, 'points': []}), isNull);
+  });
 }
