@@ -55,6 +55,7 @@ jobs:
     with:
       app: rosenweg-wetter
       paket: ch.rosenweg4303.wetter
+      web: true
       titel: Rosenweg Wetter
       veroeffentlichen: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.veroeffentlichen)) }}
       stationen_seite: ""

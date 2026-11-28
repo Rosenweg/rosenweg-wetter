@@ -16,6 +16,7 @@ eigen macht.
 | Android 8 und neuer | `rosenweg-wetter-<version>.apk` (Rosenweg-Schlüssel) | auf geteilten Telefonen meldet Rosenweg Gerät an und ab |
 | Windows 10/11 | `Rosenweg-Wetter-<version>-Setup.exe` | unsigniert, solange kein Code-Signing-Zertifikat da ist (SmartScreen fragt einmal) |
 | macOS 11 und neuer | `Rosenweg-Wetter-<version>.dmg` | ohne Apple Developer ID ad hoc signiert (Gatekeeper fragt beim ersten Start) |
+| Web (Browser) | `rosenweg-wetter-web.tar.gz` am Release, ausgerollt nach [rosenweg4303.ch/app/wetter/](https://rosenweg4303.ch/app/wetter/) | meldet sich mit der Anmeldung der Website an (eine Anmeldung für alles), kein Updater; Weiteres: rosenweg-basis `docs/web.md` |
 | iOS/iPadOS | – | baut in CI ohne Signatur, verteilt wird erst mit dem Apple Developer Program |
 
 Herunterladen: [www.rosenweg4303.ch/apps](https://www.rosenweg4303.ch/apps).
@@ -74,7 +75,8 @@ Vor dem Commit `pubspec_overrides.yaml` entfernen und `flutter pub get` laufen l
 3. Die CI baut alle fünf Plattformen, legt das Release `vx.y.z` an und schickt
    APK, `.deb`, DMG und Installer an `/apps`. Ohne neue Version passiert nach dem
    Merge nur die CI.
-4. Stationen: `linux/paket/paket.conf` in os-stationen (`pakete/rosenweg-wetter/`)
+4. Web: `scripts/rw-web-ausrollen.sh --app wetter` im Website-Repo (Archiv aus dem Release), Menüeintrag „Wetter“ zeigt auf `/app/wetter/`.
+5. Stationen: `linux/paket/paket.conf` in os-stationen (`pakete/rosenweg-wetter/`)
    mit Version und Prüfsumme nachführen.
 
 ## Lizenz
