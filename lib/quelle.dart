@@ -29,12 +29,18 @@ class WetterQuelle extends ChangeNotifier {
 
   final _roh = <String, String>{};
   Map<String, Messreihe> _verlauf = const {};
+  Ersatz? _ersatz;
+  Map<String, String> _ersatzRoh = const {};
+  ({DateTime von, DateTime bis, Set<String> stationen})? _verlaufErsatz;
   Lage _lage = const Lage(werte: {}, texte: {});
   Object? _verlaufFehler;
   bool _verlaufGeladen = false;
 
   Lage get lage => _lage;
   Map<String, Messreihe> get verlauf24 => _verlauf;
+
+  /// Ersatzwerte von MeteoSchweiz im Verlauf der letzten 24 h (von/bis), sonst null.
+  ({DateTime von, DateTime bis, Set<String> stationen})? get verlaufErsatz => _verlaufErsatz;
   Object? get verlaufFehler => _verlaufFehler;
   bool get verlaufGeladen => _verlaufGeladen;
 
@@ -45,12 +51,27 @@ class WetterQuelle extends ChangeNotifier {
   Future<Map<String, Messreihe>> verlaufLaden(int stunden) async =>
       verlaufLesen(await api.get('/api/wetter/$station/history?h=$stunden'));
 
+  /// Ersatzwerte: Faellt die Station aus, nennt die API die Werte einer
+  /// MeteoSchweiz-Station; dann gelten diese statt der (eingefrorenen) Live-Werte.
+  Future<void> _ersatzPruefen() async {
+    try {
+      final j = await api.get('/api/wetter/$station/aktuell');
+      _ersatz = ersatzLesen(j);
+      _ersatzRoh = _ersatz == null ? const {} : ersatzRoh(j);
+    } catch (_) {
+      // API-Fehler: letzten Stand behalten, die Seiten zeigen ihre Fehler selbst
+    }
+  }
+
   /// 24-h-Verlauf neu laden (Start, zurueck in den Vordergrund, alle 5 min)
   /// und die Live-Verbindung anstossen, falls sie getrennt ist.
   Future<void> auffrischen() async {
     echtzeit.nochmals();
+    await _ersatzPruefen();
     try {
-      _verlauf = await verlaufLaden(24);
+      final j24 = await api.get('/api/wetter/$station/history?h=24');
+      _verlauf = verlaufLesen(j24);
+      _verlaufErsatz = verlaufErsatzLesen(j24);
       _verlaufFehler = null;
     } catch (e) {
       _verlaufFehler = e;
@@ -60,7 +81,9 @@ class WetterQuelle extends ChangeNotifier {
   }
 
   void _neuBewerten() {
-    _lage = lageBestimmen(_roh, _verlauf);
+    final e = _ersatz;
+    // Ersatz laeuft: die Live-Werte der ausgefallenen Station gelten nicht
+    _lage = e == null ? lageBestimmen(_roh, _verlauf) : lageBestimmen(_ersatzRoh, const {}).mitErsatz(e);
     notifyListeners();
   }
 

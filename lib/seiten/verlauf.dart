@@ -34,6 +34,15 @@ class VerlaufSeite extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                if (quelle.verlaufErsatz != null) ...[
+                  Hinweis(
+                    'Im Verlauf stehen Ersatzwerte: MeteoSchweiz, Station '
+                    '${quelle.verlaufErsatz!.stationen.isEmpty ? '' : '${quelle.verlaufErsatz!.stationen.join(', ')}, '}'
+                    'von ${zeitpunktText(quelle.verlaufErsatz!.von)} bis ${zeitpunktText(quelle.verlaufErsatz!.bis)}. '
+                    'Die eigene Wetterstation hatte in dieser Zeit keine brauchbaren Werte.',
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 if (mit.isEmpty)
                   const _KeinVerlauf()
                 else

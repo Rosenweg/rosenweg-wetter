@@ -8,7 +8,10 @@ import 'package:rosenweg_basis/rosenweg_basis.dart';
 /// Server (--dart-define=RW_ATTRAPPE=1, dazu RW_AUSFALL=1 fuer den Zustand
 /// „Aussensensor liefert nichts“ wie seit August 2026).
 class Attrappe implements Transport {
-  Attrappe({this.ausfall = false, DateTime? jetzt}) : jetzt = jetzt ?? DateTime.now();
+  Attrappe({this.ausfall = false, this.ersatz = false, DateTime? jetzt}) : jetzt = jetzt ?? DateTime.now();
+
+  /// Die Station ist ausgefallen, die API liefert MeteoSchweiz-Ersatzwerte.
+  final bool ersatz;
 
   /// Wie die echte Station seit August 2026: Temperatur/Feuchte fehlen, Wind,
   /// Sonne und Regen stehen, nur der Luftdruck bewegt sich.
@@ -42,7 +45,42 @@ class Attrappe implements Transport {
         return (status: 200, json: {'user': _ich});
       case 'GET /api/wetter/r9/history':
         final h = (int.tryParse(uri.queryParameters['h'] ?? '') ?? 24).clamp(1, 168);
-        return (status: 200, json: {'station': 'r9', 'hours': h, 'points': verlauf(h)});
+        return (status: 200, json: {
+          'station': 'r9',
+          'hours': h,
+          'points': verlauf(h),
+          'ersatz': ersatz
+              ? {
+                  'von': jetzt.subtract(const Duration(hours: 3)).toUtc().toIso8601String(),
+                  'bis': jetzt.toUtc().toIso8601String(),
+                }
+              : null,
+        });
+      case 'GET /api/wetter/r9/aktuell':
+        if (!ersatz) return (status: 200, json: {'station': 'r9', 'zustand': 'eigen', 'quelle': {'art': 'eigen', 'station': 'r9'}});
+        return (status: 200, json: {
+          'station': 'r9',
+          'zustand': 'ersatz',
+          'quelle': {
+            'art': 'meteoschweiz',
+            'station': 'BAS',
+            'name': 'Basel / Binningen',
+            'abstand_km': 10.3,
+            'stand': jetzt.subtract(const Duration(minutes: 10)).toUtc().toIso8601String(),
+          },
+          'werte': {
+            'outdoortemp': 3.1,
+            'outdoorhumidity': 63,
+            'windspeed': 7.9,
+            'windgustspeed': 16.2,
+            'winddir': 107,
+            'pressureabs': 988.9,
+            'pressurerel': 1028.3,
+            'solarradiation': 13177,
+            'rain': 0,
+            'sonnenschein_min': 10,
+          },
+        });
     }
     return (status: 404, json: {'error': 'Nicht gefunden: $methode $pfad'});
   }

@@ -13,13 +13,14 @@ void main() {
     WidgetTester t,
     Size groesse, {
     bool ausfall = false,
+    bool ersatz = false,
     Map<String, String>? gespeichert,
     ApiAntwort? verlauf,
   }) async {
     t.view.physicalSize = groesse;
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.reset);
-    final a = Attrappe(ausfall: ausfall);
+    final a = Attrappe(ausfall: ausfall, ersatz: ersatz);
     if (verlauf != null) a.erzwungen['GET /api/wetter/r9/history?h=24'] = verlauf;
     final s = RosenwegSitzung(appAngaben, transport: a);
     await s.starten();
@@ -35,6 +36,21 @@ void main() {
     await t.pumpWidget(const SizedBox());
     await t.pump(const Duration(seconds: 1));
   }
+
+  testWidgets('Ersatzwerte: Hinweis mit Station und Stand, Quelle MeteoSchweiz, Ersatz im Verlauf', (t) async {
+    // die Live-Werte der ausgefallenen Station (eingefroren) duerfen nicht gelten
+    final a = await zeigen(t, const Size(412, 900), ersatz: true, gespeichert: {'wetter/r9/outdoortemp': '21.5'});
+    expect(a.anfragen.any((r) => r.pfad == '/api/wetter/r9/aktuell'), isTrue);
+    expect(find.textContaining('Ersatzwerte: MeteoSchweiz, Station Basel / Binningen (BAS), Stand'), findsOneWidget);
+    expect(find.textContaining('3.1'), findsWidgets);
+    expect(find.textContaining('21.5'), findsNothing);
+    expect(find.textContaining('Aussensensor'), findsNothing);
+    await t.scrollUntilVisible(find.textContaining('Quelle MeteoSchweiz'), 300);
+    await t.tap(find.text('Verlauf'));
+    await t.pumpAndSettle();
+    expect(find.textContaining('Im Verlauf stehen Ersatzwerte: MeteoSchweiz'), findsOneWidget);
+    await ende(t);
+  });
 
   testWidgets('Station liefert: Temperatur gross, Kacheln, Sonne und Mond; Verlauf mit allen Werten', (t) async {
     final a = await zeigen(t, const Size(412, 900));
