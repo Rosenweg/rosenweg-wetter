@@ -26,6 +26,10 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      mac:
+        type: boolean
+        default: false
 
 concurrency:
   group: app-${{ github.ref }}
@@ -42,11 +46,12 @@ jobs:
       contents: write   # Release (nur nach Merge mit neuer Version)
       actions: write    # apps.yml fuer den neuen Tag starten
       packages: read    # commons-rosenweg aus GitHub Packages (Android)
-    uses: Rosenweg/rosenweg-basis/.github/workflows/app.yml@main
+    uses: Rosenweg/rosenweg-basis/.github/workflows/app.yml@feat/mac-ios-nur-release
     with:
       app: rosenweg-wetter
       paket: ch.rosenweg4303.wetter
       titel: Rosenweg Wetter
+      mac: ${{ github.event_name == 'workflow_dispatch' && inputs.mac }}
       veroeffentlichen: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     # nur bei Push auf main; bei pull_request leer (Debug-Signatur)
     secrets:
